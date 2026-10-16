@@ -22,3 +22,22 @@
 - "\U000F0D80" # home-floor-1
 - "\U000F0D81" # home-floor-2
 - "\U000F0F9B" # home-export-outline
+# ── espdisplay layout-test additions (MDI 7.4.47) ──
+- "\U000F1796" # sun-snowflake (heat_cool / AUTO)
+- "\U000F0717" # snowflake (cool)
+- "\U000F0238" # fire (heat)
+- "\U000F0210" # fan (fan_only)
+- "\U000F058E" # water-percent (dry)
+- "\U000F0415" # plus
+- "\U000F0374" # minus
+- "\U000F050F" # thermometer
+- "\U000F029A" # gauge
+- "\U000F0F92" # water-boiler (heater)
+- "\U000F06A5" # power-plug (mains V/A)
+- "\U000F0F54" # home-thermometer
+- "\U000F05E0" # check-circle
+- "\U000F140B" # lightning-bolt (energy)
+- "\U000F0F2A" # snowflake-variant (cooling action)
+- "\U000F1A45" # heat-wave (heating action)
+- "\U000F059D" # weather-windy (fan action)
+- "\U000F0143" # chevron-up

@@ -1,0 +1,534 @@
+# ============================================================
+# test-sensors.yaml — shared Home Assistant wiring for the
+# espdisplay layout A/B/C/D test builds.
+#
+# ONE homeassistant sensor/text_sensor per source entity; each
+# on_value pushes to every variant's widgets (no per-page
+# duplication like the old layout).
+#
+# AC source: climate.climate (Airzone)
+#   - state            = hvac_mode  (off/heat_cool/cool/heat/fan_only/dry)
+#   - attribute temperature  = setpoint  (15..30, step 1)
+#   - attribute fan_mode     = auto/25%/50%/75%/100%
+#   - attribute hvac_action  = idle/cooling/heating/drying/fan/off
+#   NOTE: Airzone reports current_temperature: null — the "room"
+#   temp comes from a Zigbee sensor (substitute entity if the
+#   display lives elsewhere).
+# ============================================================
+
+globals:
+  - id: gl_fan_armed
+    type: bool
+    initial_value: "false"
+
+text_sensor:
+  # ── HVAC mode (entity state) → mode-chip highlights ───────
+  - id: sh_mode
+    platform: homeassistant
+    entity_id: climate.climate
+    on_value:
+      # Variant A
+      - lvgl.button.update:
+          id: a_m_off
+          bg_color: !lambda 'return id(sh_mode).state == "off" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: a_m_auto
+          bg_color: !lambda 'return id(sh_mode).state == "heat_cool" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: a_m_cool
+          bg_color: !lambda 'return id(sh_mode).state == "cool" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: a_m_heat
+          bg_color: !lambda 'return id(sh_mode).state == "heat" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: a_m_fan
+          bg_color: !lambda 'return id(sh_mode).state == "fan_only" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: a_m_dry
+          bg_color: !lambda 'return id(sh_mode).state == "dry" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      # Variant B
+      - lvgl.button.update:
+          id: b_m_off
+          bg_color: !lambda 'return id(sh_mode).state == "off" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: b_m_auto
+          bg_color: !lambda 'return id(sh_mode).state == "heat_cool" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: b_m_cool
+          bg_color: !lambda 'return id(sh_mode).state == "cool" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: b_m_heat
+          bg_color: !lambda 'return id(sh_mode).state == "heat" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: b_m_fan
+          bg_color: !lambda 'return id(sh_mode).state == "fan_only" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: b_m_dry
+          bg_color: !lambda 'return id(sh_mode).state == "dry" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      # Variant C
+      - lvgl.button.update:
+          id: c_m_off
+          bg_color: !lambda 'return id(sh_mode).state == "off" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: c_m_auto
+          bg_color: !lambda 'return id(sh_mode).state == "heat_cool" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: c_m_cool
+          bg_color: !lambda 'return id(sh_mode).state == "cool" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: c_m_heat
+          bg_color: !lambda 'return id(sh_mode).state == "heat" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: c_m_fan
+          bg_color: !lambda 'return id(sh_mode).state == "fan_only" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: c_m_dry
+          bg_color: !lambda 'return id(sh_mode).state == "dry" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+  # ── Fan mode → chip highlights + dropdown sync ────────────
+  - id: sh_fan
+    platform: homeassistant
+    entity_id: climate.climate
+    attribute: fan_mode
+    on_value:
+      # Variant A chips
+      - lvgl.button.update:
+          id: a_f_auto
+          bg_color: !lambda 'return id(sh_fan).state == "auto" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: a_f_25
+          bg_color: !lambda 'return id(sh_fan).state == "25%" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: a_f_50
+          bg_color: !lambda 'return id(sh_fan).state == "50%" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: a_f_75
+          bg_color: !lambda 'return id(sh_fan).state == "75%" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: a_f_100
+          bg_color: !lambda 'return id(sh_fan).state == "100%" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      # Variant B chips
+      - lvgl.button.update:
+          id: b_f_auto
+          bg_color: !lambda 'return id(sh_fan).state == "auto" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: b_f_25
+          bg_color: !lambda 'return id(sh_fan).state == "25%" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: b_f_50
+          bg_color: !lambda 'return id(sh_fan).state == "50%" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: b_f_75
+          bg_color: !lambda 'return id(sh_fan).state == "75%" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      - lvgl.button.update:
+          id: b_f_100
+          bg_color: !lambda 'return id(sh_fan).state == "100%" ? lv_color_hex(0x00B6FF) : lv_color_hex(0x5A6173);'
+      # Variant C dropdown sync (programmatic set does not echo VALUE_CHANGED;
+      # armed-guard below catches any surprise event)
+      - lvgl.dropdown.update:
+          id: c_fan_dd
+          selected_index: !lambda |-
+            if (id(sh_fan).state == "25%") return 1;
+            if (id(sh_fan).state == "50%") return 2;
+            if (id(sh_fan).state == "75%") return 3;
+            if (id(sh_fan).state == "100%") return 4;
+            return 0;
+      # arm the dropdown automation once the first real state has synced
+      - lambda: |-
+          if (!id(gl_fan_armed)) {
+            ESP_LOGI("espdisplay", "fan state synced, dropdown automation armed");
+            id(gl_fan_armed) = true;
+          }
+
+  # ── HVAC action → badge text ──────────────────────────────
+  - id: sh_action
+    platform: homeassistant
+    entity_id: climate.climate
+    attribute: hvac_action
+    on_value:
+      - lvgl.label.update:
+          id: a_act
+          text: !lambda |-
+            std::string s = x;
+            if (s == "cooling") return "Cooling";
+            if (s == "heating") return "Heating";
+            if (s == "drying") return "Drying";
+            if (s == "fan") return "Fanning";
+            if (s == "off") return "Off";
+            return "Idle";
+      - lvgl.label.update:
+          id: b_act
+          text: !lambda |-
+            std::string s = x;
+            if (s == "cooling") return "Cooling";
+            if (s == "heating") return "Heating";
+            if (s == "drying") return "Drying";
+            if (s == "fan") return "Fanning";
+            if (s == "off") return "Off";
+            return "Idle";
+      - lvgl.label.update:
+          id: c_act
+          text: !lambda |-
+            std::string s = x;
+            if (s == "cooling") return "Cooling";
+            if (s == "heating") return "Heating";
+            if (s == "drying") return "Drying";
+            if (s == "fan") return "Fanning";
+            if (s == "off") return "Off";
+            return "Idle";
+      - lvgl.label.update:
+          id: d_act
+          text: !lambda |-
+            std::string s = x;
+            if (s == "cooling") return "Cooling";
+            if (s == "heating") return "Heating";
+            if (s == "drying") return "Drying";
+            if (s == "fan") return "Fanning";
+            if (s == "off") return "Off";
+            return "Idle";
+
+sensor:
+  # ── AC setpoint → arcs, slider, hero labels ───────────────
+  - id: sh_tgt
+    platform: homeassistant
+    entity_id: climate.climate
+    attribute: temperature
+    on_value:
+      - lvgl.label.update:
+          id: a_tgt
+          text:
+            format: "%.0f°C"
+            args: [x]
+      - lvgl.arc.update:
+          id: a_arc
+          value: !lambda "return x;"
+      - lvgl.label.update:
+          id: b_tgt
+          text:
+            format: "%.0f°C"
+            args: [x]
+      - lvgl.slider.update:
+          id: b_slider
+          value: !lambda "return x;"
+      - lvgl.label.update:
+          id: c_tgt
+          text:
+            format: "%.0f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: d_tgt
+          text:
+            format: "%.0f°C"
+            args: [x]
+      - lvgl.arc.update:
+          id: d_arc
+          value: !lambda "return x;"
+
+  # ── Room temp (Office Zigbee sensor; Airzone current_temperature is null)
+  - id: sh_room
+    platform: homeassistant
+    entity_id: sensor.zbthermvb_temperature
+    on_value:
+      - lvgl.label.update:
+          id: a_room
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: b_room
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: c_room
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: d_room
+          text:
+            format: "%.1f°C"
+            args: [x]
+      # office tile on every values page
+      - lvgl.label.update:
+          id: va_office
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_office
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_office
+          text:
+            format: "%.1f°C"
+            args: [x]
+
+  # ── Bedroom temp ──────────────────────────────────────────
+  - id: sh_t_bed
+    platform: homeassistant
+    entity_id: sensor.therm_bedroom_area_temperature
+    on_value:
+      - lvgl.label.update:
+          id: va_bedroom
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_bedroom
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_bedroom
+          text:
+            format: "%.1f°C"
+            args: [x]
+
+  # ── Ufficio temp ──────────────────────────────────────────
+  - id: sh_t_uff
+    platform: homeassistant
+    entity_id: sensor.therm_ufficio_temperature
+    on_value:
+      - lvgl.label.update:
+          id: va_ufficio
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_ufficio
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_ufficio
+          text:
+            format: "%.1f°C"
+            args: [x]
+
+  # ── Zone 1 temp ───────────────────────────────────────────
+  - id: sh_t_z1
+    platform: homeassistant
+    entity_id: sensor.therm_z1_temperature
+    on_value:
+      - lvgl.label.update:
+          id: va_z1
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_z1
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_z1
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: d_z1
+          text:
+            format: "%.1f°C"
+            args: [x]
+
+  # ── Zone 2 temp (Loo) ─────────────────────────────────────
+  - id: sh_t_z2
+    platform: homeassistant
+    entity_id: sensor.therm_z2_temperature
+    on_value:
+      - lvgl.label.update:
+          id: va_z2
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_z2
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_z2
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: d_z2
+          text:
+            format: "%.1f°C"
+            args: [x]
+
+  # ── Zone 3 temp ───────────────────────────────────────────
+  - id: sh_t_z3
+    platform: homeassistant
+    entity_id: sensor.therm_z3_temperature
+    on_value:
+      - lvgl.label.update:
+          id: va_z3
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_z3
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_z3
+          text:
+            format: "%.1f°C"
+            args: [x]
+      - lvgl.label.update:
+          id: d_z3
+          text:
+            format: "%.1f°C"
+            args: [x]
+
+  # ── Grid power ────────────────────────────────────────────
+  - id: sh_power
+    platform: homeassistant
+    entity_id: sensor.main_supply_power
+    on_value:
+      - lvgl.label.update:
+          id: va_power
+          text:
+            format: "%.0f W"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_power
+          text:
+            format: "%.0f W"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_power
+          text:
+            format: "%.0f W"
+            args: [x]
+      - lvgl.label.update:
+          id: vd_power
+          text:
+            format: "%.0f W"
+            args: [x]
+
+  # ── Grid voltage (phase A) ────────────────────────────────
+  - id: sh_v
+    platform: homeassistant
+    entity_id: sensor.main_supply_voltage_a
+    on_value:
+      - lvgl.label.update:
+          id: va_v
+          text:
+            format: "%.1f V"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_v
+          text:
+            format: "%.1f V"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_va
+          text:
+            format: "%.1f V"
+            args: [x]
+      - lvgl.label.update:
+          id: vd_va
+          text:
+            format: "%.1f V"
+            args: [x]
+
+  # ── Grid current (phase A) ────────────────────────────────
+  - id: sh_a
+    platform: homeassistant
+    entity_id: sensor.main_supply_current_a
+    on_value:
+      - lvgl.label.update:
+          id: va_a
+          text:
+            format: "%.2f A"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_a
+          text:
+            format: "%.2f A"
+            args: [x]
+
+  # ── Heater socket power ───────────────────────────────────
+  - id: sh_heater
+    platform: homeassistant
+    entity_id: sensor.tapo_sock_water_xl_current_consumption
+    on_value:
+      - lvgl.label.update:
+          id: vc_heater
+          text:
+            format: "%.0f W"
+            args: [x]
+      - lvgl.label.update:
+          id: vd_heater
+          text:
+            format: "%.0f W"
+            args: [x]
+
+  # ── Energy today ──────────────────────────────────────────
+  - id: sh_today
+    platform: homeassistant
+    entity_id: sensor.tapo_sock_water_xl_today_s_consumption
+    on_value:
+      - lvgl.label.update:
+          id: va_today
+          text:
+            format: "%.1f kWh"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_today
+          text:
+            format: "%.1f kWh"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_today
+          text:
+            format: "%.1f kWh"
+            args: [x]
+      - lvgl.label.update:
+          id: vd_today
+          text:
+            format: "%.1f kWh"
+            args: [x]
+      - lvgl.bar.update:
+          id: vd_bar_today
+          value: !lambda |-
+            if (isnan(x)) return 0;
+            // full scale 10 kWh
+            return std::min(100.0f, x * 10.0f);
+
+  # ── Energy month ──────────────────────────────────────────
+  - id: sh_month
+    platform: homeassistant
+    entity_id: sensor.tapo_sock_water_xl_this_month_s_consumption
+    on_value:
+      - lvgl.label.update:
+          id: va_month
+          text:
+            format: "%.1f kWh"
+            args: [x]
+      - lvgl.label.update:
+          id: vb_month
+          text:
+            format: "%.1f kWh"
+            args: [x]
+      - lvgl.label.update:
+          id: vc_month
+          text:
+            format: "%.1f kWh"
+            args: [x]
+      - lvgl.label.update:
+          id: vd_month
+          text:
+            format: "%.1f kWh"
+            args: [x]
+      - lvgl.bar.update:
+          id: vd_bar_month
+          value: !lambda |-
+            if (isnan(x)) return 0;
+            // full scale 50 kWh
+            return std::min(100.0f, x * 2.0f);

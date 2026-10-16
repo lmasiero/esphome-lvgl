@@ -1,0 +1,1569 @@
+# ============================================================
+# ESPHome LVGL layout test suite — espdisplay (Guition JC3248W535)
+# PORTRAIT 3:4 (320x480, native panel orientation — no rotation)
+#
+# Same 4 variants as test-480x320.yaml, re-flowed vertically.
+# Shared HA wiring in test-sensors.yaml.
+# ============================================================
+
+font: !include
+  file: fonts/fonts.yaml
+  vars:
+    text_sm: 14
+    text_md: 18
+    text_lg: 24
+    text_xl: 32
+    text_xxl: 48
+    icons_sm: 18
+    icons_md: 24
+    icons_lg: 32
+    icons_xl: 40
+    icons_xxl: 48
+
+.sizing:
+  - &page
+    <<: !include styles/page_styles.yaml
+    pad_top: 50
+    pad_bottom: 50
+    scrollable: false
+  - &container
+    <<: !include styles/container_styles.yaml
+    pad_top: 0
+    pad_bottom: 0
+    pad_left: 6
+    pad_right: 6
+    scrollable: false
+
+script:
+  - id: go_home
+    then:
+      - lvgl.page.show: ${home_page}
+  # slider release → send setpoint (script has no trigger args, so the
+  # templated data lambda below stays signature-clean; the value is read
+  # via the LVGL C API because id() outside lvgl yields a raw lv_obj_t*)
+  - id: b_apply_slider
+    then:
+      - homeassistant.action:
+          action: climate.set_temperature
+          data:
+            entity_id: climate.climate
+            temperature: !lambda 'return to_string((int) lv_slider_get_value(id(b_slider)));'
+
+lvgl:
+  default_font: roboto_md
+  theme: !include themes/main.yaml
+  top_layer:
+    widgets:
+      - <<: !include { file: widgets/header/widget.yaml, vars: { height: 50, padding: 8 } }
+      - <<: !include { file: widgets/footer/widget.yaml,  vars: { height: 50 } }
+      - <<: !include { file: widgets/notify_banner.yaml }
+      - <<: !include { file: widgets/boot_screen/widget.yaml }
+
+  pages:
+    # ── splash (auto-skip) ──────────────────────────────────
+    - id: splash
+      skip: true
+      on_load:
+        - script.execute: go_home
+
+    # ══════════════════════════════════════════════════════════
+    # VARIANT A — ARC · AC control page (portrait)
+    # ══════════════════════════════════════════════════════════
+    - id: ac_a
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: AC A Arc
+      widgets:
+        - obj:
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 4, flex_align_cross: CENTER }
+            widgets:
+              - arc:
+                  id: a_arc
+                  width: 118
+                  height: 118
+                  min_value: 15
+                  max_value: 30
+                  value: 25
+                  adjustable: false
+                  widgets:
+                    - label:
+                        id: a_tgt
+                        text: "--°C"
+                        text_font: roboto_lg
+                        align: CENTER
+                        y: -10
+                    - label:
+                        id: a_room
+                        text: "--.-°C"
+                        text_font: roboto_sm
+                        align: CENTER
+                        y: 16
+              - obj: # ± row
+                  width: 100%
+                  height: 42
+                  layout: { type: FLEX, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: CENTER, pad_column: 24 }
+                  widgets:
+                    - button:
+                        id: a_dn
+                        width: 42
+                        height: 42
+                        radius: 21
+                        widgets:
+                          - label:
+                              text: "\U000F0374"
+                              text_font: mdi_md
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t - 1.0f)));
+                        on_long_press_repeat:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t - 1.0f)));
+                    - button:
+                        id: a_up
+                        width: 42
+                        height: 42
+                        radius: 21
+                        widgets:
+                          - label:
+                              text: "\U000F0415"
+                              text_font: mdi_md
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t + 1.0f)));
+                        on_long_press_repeat:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t + 1.0f)));
+              - obj: # mode grid 2 x 3
+                  width: 100%
+                  height: 90
+                  layout: { type: FLEX, flex_flow: ROW_WRAP, flex_align_main: SPACE_BETWEEN, pad_row: 5 }
+                  widgets:
+                    - button:
+                        id: a_m_off
+                        width: "48%"
+                        height: 42
+                        text: "OFF"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.turn_off
+                              data: { entity_id: climate.climate }
+                    - button:
+                        id: a_m_auto
+                        width: "48%"
+                        height: 42
+                        text: "AUTO"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: heat_cool }
+                    - button:
+                        id: a_m_cool
+                        width: "48%"
+                        height: 42
+                        text: "COOL"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: cool }
+                    - button:
+                        id: a_m_heat
+                        width: "48%"
+                        height: 42
+                        text: "HEAT"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: heat }
+                    - button:
+                        id: a_m_fan
+                        width: "48%"
+                        height: 42
+                        text: "FAN"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: fan_only }
+                    - button:
+                        id: a_m_dry
+                        width: "48%"
+                        height: 42
+                        text: "DRY"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: dry }
+              - obj: # badge + fan chips
+                  width: 100%
+                  height: 28
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 4 }
+                  widgets:
+                    - label:
+                        id: a_act
+                        text: " "
+                        text_font: roboto_sm
+                        width: 80
+                    - button:
+                        id: a_f_auto
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: AUTO
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: auto }
+                    - button:
+                        id: a_f_25
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: "25%"
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: "25%" }
+                    - button:
+                        id: a_f_50
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: "50%"
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: "50%" }
+                    - button:
+                        id: a_f_75
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: "75%"
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: "75%" }
+                    - button:
+                        id: a_f_100
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: "100%"
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: "100%" }
+
+    # ══════════════════════════════════════════════════════════
+    # VARIANT A — ARC · values page (portrait)
+    # ══════════════════════════════════════════════════════════
+    - id: val_a
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: Read A Tiles
+      widgets:
+        - obj:
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 6 }
+            widgets:
+              - obj: # 6 temp tiles, 2 x 3
+                  width: 100%
+                  flex_grow: 1
+                  layout: { type: FLEX, flex_flow: ROW_WRAP, flex_align_main: SPACE_BETWEEN, pad_row: 6 }
+                  widgets:
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Office
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: va_office
+                              text: "--.-°C"
+                              text_font: roboto_lg
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Bedroom
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: va_bedroom
+                              text: "--.-°C"
+                              text_font: roboto_lg
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Ufficio
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: va_ufficio
+                              text: "--.-°C"
+                              text_font: roboto_lg
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Zone 1
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: va_z1
+                              text: "--.-°C"
+                              text_font: roboto_lg
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Loo
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: va_z2
+                              text: "--.-°C"
+                              text_font: roboto_lg
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Zone 3
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: va_z3
+                              text: "--.-°C"
+                              text_font: roboto_lg
+                              align: CENTER
+                              y: 5
+              - obj: # energy strip
+                  width: 100%
+                  height: 50
+                  radius: 10
+                  bg_color: 0x3A4152
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 4 }
+                  widgets:
+                    - obj:
+                        scrollable: false
+                        width: "31%"
+                        height: 50
+                        widgets:
+                          - label:
+                              id: va_power
+                              text: "--- W"
+                              text_font: roboto_md
+                              align: CENTER
+                    - obj:
+                        scrollable: false
+                        width: "15%"
+                        height: 50
+                        widgets:
+                          - label:
+                              id: va_v
+                              text: "--- V"
+                              text_font: roboto_sm
+                              align: CENTER
+                    - obj:
+                        scrollable: false
+                        width: "15%"
+                        height: 50
+                        widgets:
+                          - label:
+                              id: va_a
+                              text: "--- A"
+                              text_font: roboto_sm
+                              align: CENTER
+                    - obj:
+                        scrollable: false
+                        width: "16%"
+                        height: 50
+                        widgets:
+                          - label:
+                              id: va_today
+                              text: "--.- kWh"
+                              text_font: roboto_sm
+                              align: CENTER
+                    - obj:
+                        scrollable: false
+                        width: "16%"
+                        height: 50
+                        widgets:
+                          - label:
+                              id: va_month
+                              text: "--.- kWh"
+                              text_font: roboto_sm
+                              align: CENTER
+
+    # ══════════════════════════════════════════════════════════
+    # PAGE  LIGHTS — room groups + all-off + outdoor
+    # ══════════════════════════════════════════════════════════
+    - id: lights_g
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: Lights
+      widgets:
+        - obj:
+            <<: *container
+            scrollable: false
+            layout: { type: FLEX, flex_flow: ROW_WRAP, flex_align_main: SPACE_BETWEEN, pad_row: 8 }
+            widgets:
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: g_living, entity_id: light.living_room, text: Living, width: "32%", height: 66 } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: g_office, entity_id: light.office_lm, text: Office, width: "32%", height: 66 } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: g_computer, entity_id: light.computer, text: Computer, width: "32%", height: 66 } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: g_kitchen, entity_id: light.kitchen, text: Kitchen, width: "32%", height: 66 } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: g_bed, entity_id: light.bedroom, text: Bedroom, width: "32%", height: 66 } }
+              - button:
+                  width: "32%"
+                  height: 66
+                  text: "ALL OFF"
+                  on_short_click:
+                    - homeassistant.action:
+                        action: light.turn_off
+                        data: { entity_id: "light.living_room, light.office_lm, light.computer, light.kitchen, light.bedroom" }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/stateful.yaml, vars: { uid: g_outside, icon_on: "\U000F06E8", icon_off: "\U000F0336", text: Outside, width: "32%", height: 66 } }
+                  on_short_click:
+                    - homeassistant.action:
+                        action: switch.toggle
+                        data: { entity_id: switch.outside_lights_switch }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/stateful.yaml, vars: { uid: g_patio, icon_on: "\U000F06E8", icon_off: "\U000F0336", text: Patio, width: "32%", height: 66 } }
+                  on_short_click:
+                    - homeassistant.action:
+                        action: switch.toggle
+                        data: { entity_id: switch.patio_switch }
+
+    # ══════════════════════════════════════════════════════════
+    # VARIANT B — SLIDER · AC control page (portrait)
+    # ══════════════════════════════════════════════════════════
+    - id: ac_b
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: AC B Slider
+      widgets:
+        - obj:
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 7 }
+            widgets:
+              - obj: # ± + big setpoint + room
+                  width: 100%
+                  height: 56
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 10, flex_align_cross: CENTER }
+                  widgets:
+                    - button:
+                        id: b_dn
+                        width: 50
+                        height: 50
+                        radius: 25
+                        widgets:
+                          - label:
+                              text: "\U000F0374"
+                              text_font: mdi_md
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t - 1.0f)));
+                        on_long_press_repeat:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t - 1.0f)));
+                    - obj:
+                        scrollable: false
+                        flex_grow: 1
+                        height: 56
+                        widgets:
+                          - label:
+                              id: b_tgt
+                              text: "--°C"
+                              text_font: roboto_xxl
+                              align: CENTER
+                    - button:
+                        id: b_up
+                        width: 50
+                        height: 50
+                        radius: 25
+                        widgets:
+                          - label:
+                              text: "\U000F0415"
+                              text_font: mdi_md
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t + 1.0f)));
+                        on_long_press_repeat:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t + 1.0f)));
+              - slider:
+                  id: b_slider
+                  width: 100%
+                  height: 26
+                  min_value: 15
+                  max_value: 30
+                  value: 25
+                  on_release:
+                    - script.execute: b_apply_slider
+              - obj: # presets
+                  width: 100%
+                  height: 36
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 6 }
+                  widgets:
+                    - button:
+                        id: b_p20
+                        width: "18.3%"
+                        height: 36
+                        text: "20"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data: { entity_id: climate.climate, temperature: "20" }
+                    - button:
+                        id: b_p22
+                        width: "18.3%"
+                        height: 36
+                        text: "22"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data: { entity_id: climate.climate, temperature: "22" }
+                    - button:
+                        id: b_p24
+                        width: "18.3%"
+                        height: 36
+                        text: "24"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data: { entity_id: climate.climate, temperature: "24" }
+                    - button:
+                        id: b_p26
+                        width: "18.3%"
+                        height: 36
+                        text: "26"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data: { entity_id: climate.climate, temperature: "26" }
+                    - button:
+                        id: b_p28
+                        width: "18.3%"
+                        height: 36
+                        text: "28"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data: { entity_id: climate.climate, temperature: "28" }
+              - obj: # mode grid 2 x 3
+                  width: 100%
+                  height: 142
+                  layout: { type: FLEX, flex_flow: ROW_WRAP, flex_align_main: SPACE_BETWEEN, pad_row: 5 }
+                  widgets:
+                    - button:
+                        id: b_m_off
+                        width: "48%"
+                        height: 44
+                        text: "OFF"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.turn_off
+                              data: { entity_id: climate.climate }
+                    - button:
+                        id: b_m_auto
+                        width: "48%"
+                        height: 44
+                        text: AUTO
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: heat_cool }
+                    - button:
+                        id: b_m_cool
+                        width: "48%"
+                        height: 44
+                        text: COOL
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: cool }
+                    - button:
+                        id: b_m_heat
+                        width: "48%"
+                        height: 44
+                        text: HEAT
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: heat }
+                    - button:
+                        id: b_m_fan
+                        width: "48%"
+                        height: 44
+                        text: FAN
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: fan_only }
+                    - button:
+                        id: b_m_dry
+                        width: "48%"
+                        height: 44
+                        text: DRY
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: dry }
+              - obj: # fan chips
+                  width: 100%
+                  height: 28
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 4 }
+                  widgets:
+                    - button:
+                        id: b_f_auto
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: AUTO
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: auto }
+                    - button:
+                        id: b_f_25
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: "25%"
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: "25%" }
+                    - button:
+                        id: b_f_50
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: "50%"
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: "50%" }
+                    - button:
+                        id: b_f_75
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: "75%"
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: "75%" }
+                    - button:
+                        id: b_f_100
+                        flex_grow: 1
+                        height: 28
+                        widgets:
+                          - label:
+                              text: "100%"
+                              text_font: roboto_sm
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data: { entity_id: climate.climate, fan_mode: "100%" }
+              - obj: # badge: action + room
+                  width: 100%
+                  height: 20
+                  widgets:
+                    - label:
+                        id: b_act
+                        text: " "
+                        text_font: roboto_sm
+                        align: LEFT_MID
+                        x: 8
+                    - label:
+                        id: b_room
+                        text: "--.-°C"
+                        text_font: roboto_sm
+                        align: RIGHT_MID
+                        x: -8
+
+    # ══════════════════════════════════════════════════════════
+    # VARIANT B — SLIDER · values page (portrait, roomy list)
+    # ══════════════════════════════════════════════════════════
+    - id: val_b
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: Read B List
+      widgets:
+        - obj:
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 5 }
+            widgets:
+              - obj:
+                  scrollable: false
+                  width: 100%
+                  height: 30
+                  widgets:
+                    - label:
+                        text: "\U000F050F"
+                        text_font: mdi_sm
+                        align: LEFT_MID
+                        x: 8
+                    - label:
+                        text: Office
+                        text_font: roboto_sm
+                        align: LEFT_MID
+                        x: 32
+                    - label:
+                        id: vb_office
+                        text: "--.-°C"
+                        text_font: roboto_md
+                        align: RIGHT_MID
+                        x: -8
+              - obj:
+                  scrollable: false
+                  width: 100%
+                  height: 30
+                  widgets:
+                    - label:
+                        text: "\U000F050F"
+                        text_font: mdi_sm
+                        align: LEFT_MID
+                        x: 8
+                    - label:
+                        text: Bedroom
+                        text_font: roboto_sm
+                        align: LEFT_MID
+                        x: 32
+                    - label:
+                        id: vb_bedroom
+                        text: "--.-°C"
+                        text_font: roboto_md
+                        align: RIGHT_MID
+                        x: -8
+              - obj:
+                  scrollable: false
+                  width: 100%
+                  height: 30
+                  widgets:
+                    - label:
+                        text: "\U000F050F"
+                        text_font: mdi_sm
+                        align: LEFT_MID
+                        x: 8
+                    - label:
+                        text: Ufficio
+                        text_font: roboto_sm
+                        align: LEFT_MID
+                        x: 32
+                    - label:
+                        id: vb_ufficio
+                        text: "--.-°C"
+                        text_font: roboto_md
+                        align: RIGHT_MID
+                        x: -8
+              - obj:
+                  scrollable: false
+                  width: 100%
+                  height: 30
+                  widgets:
+                    - label:
+                        text: "\U000F050F"
+                        text_font: mdi_sm
+                        align: LEFT_MID
+                        x: 8
+                    - label:
+                        text: Zone 1
+                        text_font: roboto_sm
+                        align: LEFT_MID
+                        x: 32
+                    - label:
+                        id: vb_z1
+                        text: "--.-°C"
+                        text_font: roboto_md
+                        align: RIGHT_MID
+                        x: -8
+              - obj:
+                  scrollable: false
+                  width: 100%
+                  height: 30
+                  widgets:
+                    - label:
+                        text: "\U000F050F"
+                        text_font: mdi_sm
+                        align: LEFT_MID
+                        x: 8
+                    - label:
+                        text: Loo
+                        text_font: roboto_sm
+                        align: LEFT_MID
+                        x: 32
+                    - label:
+                        id: vb_z2
+                        text: "--.-°C"
+                        text_font: roboto_md
+                        align: RIGHT_MID
+                        x: -8
+              - obj:
+                  scrollable: false
+                  width: 100%
+                  height: 30
+                  widgets:
+                    - label:
+                        text: "\U000F050F"
+                        text_font: mdi_sm
+                        align: LEFT_MID
+                        x: 8
+                    - label:
+                        text: Zone 3
+                        text_font: roboto_sm
+                        align: LEFT_MID
+                        x: 32
+                    - label:
+                        id: vb_z3
+                        text: "--.-°C"
+                        text_font: roboto_md
+                        align: RIGHT_MID
+                        x: -8
+              - obj: # energy footer
+                  width: 100%
+                  flex_grow: 1
+                  radius: 10
+                  bg_color: 0x3A4152
+                  widgets:
+                    - label:
+                        text: "\U000F140B"
+                        text_font: mdi_md
+                        align: TOP_LEFT
+                        x: 8
+                        y: 8
+                    - label:
+                        id: vb_power
+                        text: "--- W"
+                        text_font: roboto_lg
+                        align: LEFT_MID
+                        x: 40
+                    - label:
+                        id: vb_v
+                        text: "--- V"
+                        text_font: roboto_sm
+                        align: RIGHT_MID
+                        x: -8
+                        y: -10
+                    - label:
+                        id: vb_a
+                        text: "--- A"
+                        text_font: roboto_sm
+                        align: RIGHT_MID
+                        x: -8
+                    - label:
+                        id: vb_today
+                        text: "--.- kWh"
+                        text_font: roboto_sm
+                        align: RIGHT_MID
+                        x: -90
+                    - label:
+                        id: vb_month
+                        text: "--.- kWh"
+                        text_font: roboto_sm
+                        align: RIGHT_MID
+                        x: -8
+                        y: 10
+
+    # ══════════════════════════════════════════════════════════
+    # VARIANT C — MATRIX · AC control page (portrait)
+    # ══════════════════════════════════════════════════════════
+    - id: ac_c
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: AC C Matrix
+      widgets:
+        - obj:
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 6, flex_align_cross: CENTER }
+            widgets:
+              - label:
+                  id: c_tgt
+                  text: "--°C"
+                  text_font: roboto_xxl
+              - obj: # ± row
+                  width: 100%
+                  height: 52
+                  layout: { type: FLEX, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: CENTER, pad_column: 24 }
+                  widgets:
+                    - button:
+                        id: c_dn
+                        width: 50
+                        height: 50
+                        radius: 25
+                        widgets:
+                          - label:
+                              text: "\U000F0374"
+                              text_font: mdi_md
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t - 1.0f)));
+                        on_long_press_repeat:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t - 1.0f)));
+                    - button:
+                        id: c_up
+                        width: 50
+                        height: 50
+                        radius: 25
+                        widgets:
+                          - label:
+                              text: "\U000F0415"
+                              text_font: mdi_md
+                              align: CENTER
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t + 1.0f)));
+                        on_long_press_repeat:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data:
+                                entity_id: climate.climate
+                                temperature: !lambda |-
+                                  float t = id(sh_tgt).state;
+                                  if (isnan(t)) t = 25.0;
+                                  return to_string((int) std::min(30.0f, std::max(15.0f, t + 1.0f)));
+              - label:
+                  id: c_room
+                  text: "--.-°C"
+                  text_font: roboto_sm
+              - obj: # mode grid 2 x 3
+                  width: 100%
+                  height: 142
+                  layout: { type: FLEX, flex_flow: ROW_WRAP, flex_align_main: SPACE_BETWEEN, pad_row: 5 }
+                  widgets:
+                    - button:
+                        id: c_m_off
+                        width: "48%"
+                        height: 44
+                        text: "OFF"
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.turn_off
+                              data: { entity_id: climate.climate }
+                    - button:
+                        id: c_m_auto
+                        width: "48%"
+                        height: 44
+                        text: AUTO
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: heat_cool }
+                    - button:
+                        id: c_m_cool
+                        width: "48%"
+                        height: 44
+                        text: COOL
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: cool }
+                    - button:
+                        id: c_m_heat
+                        width: "48%"
+                        height: 44
+                        text: HEAT
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: heat }
+                    - button:
+                        id: c_m_fan
+                        width: "48%"
+                        height: 44
+                        text: FAN
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: fan_only }
+                    - button:
+                        id: c_m_dry
+                        width: "48%"
+                        height: 44
+                        text: DRY
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: dry }
+              - dropdown:
+                  id: c_fan_dd
+                  width: 100%
+                  height: 38
+                  options: ["auto", "25%", "50%", "75%", "100%"]
+                  on_value:
+                    - if:
+                        condition:
+                          lambda: 'return id(gl_fan_armed);'
+                        then:
+                          - homeassistant.action:
+                              action: climate.set_fan_mode
+                              data:
+                                entity_id: climate.climate
+                                fan_mode: !lambda |-
+                                  static const char* const fans[] = {"auto", "25%", "50%", "75%", "100%"};
+                                  int idx = id(c_fan_dd).get_selected_index();
+                                  return std::string(fans[(idx >= 0 && idx < 5) ? idx : 0]);
+              - label:
+                  id: c_act
+                  text: " "
+                  text_font: roboto_sm
+
+    # ══════════════════════════════════════════════════════════
+    # VARIANT C — MATRIX · values page (portrait)
+    # ══════════════════════════════════════════════════════════
+    - id: val_c
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: Read C Cards
+      widgets:
+        - obj:
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 6 }
+            widgets:
+              - obj: # 6 cards, 2 x 3
+                  width: 100%
+                  flex_grow: 1
+                  layout: { type: FLEX, flex_flow: ROW_WRAP, flex_align_main: SPACE_BETWEEN, pad_row: 6 }
+                  widgets:
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Office
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: vc_office
+                              text: "--.-°C"
+                              text_font: roboto_md
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Bedroom
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: vc_bedroom
+                              text: "--.-°C"
+                              text_font: roboto_md
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Ufficio
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: vc_ufficio
+                              text: "--.-°C"
+                              text_font: roboto_md
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Zone 1
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: vc_z1
+                              text: "--.-°C"
+                              text_font: roboto_md
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Loo
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: vc_z2
+                              text: "--.-°C"
+                              text_font: roboto_md
+                              align: CENTER
+                              y: 5
+                    - obj:
+                        scrollable: false
+                        width: "48%"
+                        height: 64
+                        radius: 10
+                        bg_color: 0x3A4152
+                        widgets:
+                          - label:
+                              text: Zone 3
+                              text_font: roboto_sm
+                              align: TOP_MID
+                              y: 6
+                          - label:
+                              id: vc_z3
+                              text: "--.-°C"
+                              text_font: roboto_md
+                              align: CENTER
+                              y: 5
+              - obj: # energy 2 x 2
+                  width: 100%
+                  height: 96
+                  radius: 10
+                  bg_color: 0x3A4152
+                  widgets:
+                    - label:
+                        text: "\U000F140B"
+                        text_font: mdi_sm
+                        align: TOP_LEFT
+                        x: 8
+                        y: 6
+                    - label:
+                        id: vc_power
+                        text: "--- W"
+                        text_font: roboto_lg
+                        align: LEFT_MID
+                        x: 34
+                        y: -12
+                    - label:
+                        text: "\U000F0F92"
+                        text_font: mdi_sm
+                        align: TOP_MID
+                        y: 8
+                    - label:
+                        id: vc_heater
+                        text: "--- W"
+                        text_font: roboto_md
+                        align: CENTER
+                        y: 12
+                    - label:
+                        text: "\U000F06A5"
+                        text_font: mdi_sm
+                        align: TOP_RIGHT
+                        x: -8
+                        y: 6
+                    - label:
+                        id: vc_va
+                        text: "--- V"
+                        text_font: roboto_md
+                        align: RIGHT_MID
+                        x: -8
+                        y: -12
+                    - label:
+                        id: vc_today
+                        text: "--.- kWh"
+                        text_font: roboto_sm
+                        align: LEFT_MID
+                        x: 8
+                        y: 22
+                    - label:
+                        id: vc_month
+                        text: "--.- kWh"
+                        text_font: roboto_sm
+                        align: RIGHT_MID
+                        x: -8
+                        y: 22
+
+    # ══════════════════════════════════════════════════════════
+    # VARIANT D — ZONES · AC status page (portrait)
+    # ══════════════════════════════════════════════════════════
+    - id: ac_d
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: Zones
+      widgets:
+        - obj:
+            <<: *container
+            scrollable: false
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 10, flex_align_cross: CENTER }
+            widgets:
+              - arc:
+                  id: d_arc
+                  width: 120
+                  height: 120
+                  min_value: 15
+                  max_value: 30
+                  value: 25
+                  adjustable: false
+                  widgets:
+                    - label:
+                        id: d_tgt
+                        text: "--°C"
+                        text_font: roboto_lg
+                        align: CENTER
+                        y: -8
+                    - label:
+                        id: d_room
+                        text: "--.-°C"
+                        text_font: roboto_sm
+                        align: CENTER
+                        y: 16
+              - obj:
+                  scrollable: false
+                  width: 100%
+                  height: 110
+                  layout: { type: FLEX, flex_flow: COLUMN, pad_row: 4 }
+                  widgets:
+                    - obj:
+                        scrollable: false
+                        width: 100%
+                        height: 34
+                        widgets:
+                          - label:
+                              text: Zone 1
+                              text_font: roboto_sm
+                              align: LEFT_MID
+                              x: 8
+                          - label:
+                              id: d_z1
+                              text: "--.-°C"
+                              text_font: roboto_md
+                              align: RIGHT_MID
+                              x: -8
+                    - obj:
+                        scrollable: false
+                        width: 100%
+                        height: 34
+                        widgets:
+                          - label:
+                              text: Loo (Z2)
+                              text_font: roboto_sm
+                              align: LEFT_MID
+                              x: 8
+                          - label:
+                              id: d_z2
+                              text: "--.-°C"
+                              text_font: roboto_md
+                              align: RIGHT_MID
+                              x: -8
+                    - obj:
+                        scrollable: false
+                        width: 100%
+                        height: 34
+                        widgets:
+                          - label:
+                              text: Zone 3
+                              text_font: roboto_sm
+                              align: LEFT_MID
+                              x: 8
+                          - label:
+                              id: d_z3
+                              text: "--.-°C"
+                              text_font: roboto_md
+                              align: RIGHT_MID
+                              x: -8
+              - label:
+                  id: d_act
+                  text: " "
+                  text_font: roboto_sm
+
+    # ══════════════════════════════════════════════════════════
+    # VARIANT D — ZONES · values page (portrait, power focus)
+    # ══════════════════════════════════════════════════════════
+    - id: val_d
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: Power
+      widgets:
+        - obj:
+            <<: *container
+            scrollable: false
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 8 }
+            widgets:
+              - obj: # hero
+                  width: 100%
+                  height: 56
+                  scrollable: false
+                  widgets:
+                    - label:
+                        text: "\U000F140B"
+                        text_font: mdi_md
+                        text_color: 0x9AA3B2
+                        align: LEFT_MID
+                        x: 8
+                    - label:
+                        id: vd_power
+                        text: "--- W"
+                        text_font: roboto_xl
+                        align: LEFT_MID
+                        x: 42
+                    - label:
+                        id: vd_va
+                        text: "--- V"
+                        text_font: roboto_sm
+                        align: RIGHT_MID
+                        x: -8
+                        y: 12
+
+              - obj: # today bar
+                  width: 100%
+                  height: 26
+                  scrollable: false
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 6, flex_align_cross: CENTER }
+                  widgets:
+                    - label:
+                        text: Today
+                        text_font: roboto_sm
+                        text_color: 0x9AA3B2
+                        width: 56
+                    - bar:
+                        id: vd_bar_today
+                        flex_grow: 1
+                        height: 16
+                        min_value: 0
+                        max_value: 100
+                        value: 0
+                    - label:
+                        id: vd_today
+                        text: "--.- kWh"
+                        text_font: roboto_sm
+                        width: 84
+                        text_align: RIGHT
+              - obj: # month bar
+                  width: 100%
+                  height: 26
+                  scrollable: false
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 6, flex_align_cross: CENTER }
+                  widgets:
+                    - label:
+                        text: Month
+                        text_font: roboto_sm
+                        text_color: 0x9AA3B2
+                        width: 56
+                    - bar:
+                        id: vd_bar_month
+                        flex_grow: 1
+                        height: 16
+                        min_value: 0
+                        max_value: 100
+                        value: 0
+                    - label:
+                        id: vd_month
+                        text: "--.- kWh"
+                        text_font: roboto_sm
+                        width: 84
+                        text_align: RIGHT
+              - obj: # heater strip
+                  width: 100%
+                  height: 24
+                  scrollable: false
+                  widgets:
+                    - label:
+                        text: "\U000F0F92"
+                        text_font: mdi_sm
+                        align: LEFT_MID
+                        x: 8
+                    - label:
+                        text: Heater
+                        text_font: roboto_sm
+                        text_color: 0x9AA3B2
+                        align: LEFT_MID
+                        x: 32
+                    - label:
+                        id: vd_heater
+                        text: "--- W"
+                        text_font: roboto_md
+                        align: RIGHT_MID
+                        x: -8
+
+
+# ══════════════════════════════════════════════════════════════════
+# SHARED WIRING
+# ══════════════════════════════════════════════════════════════════
+packages:
+  header_sensors: !include { file: widgets/header/sensors.yaml }
+  boot_screen_sensors: !include { file: widgets/boot_screen/sensors.yaml }
+  shared_sensors: !include { file: test-sensors.yaml }

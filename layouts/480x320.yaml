@@ -1,58 +1,45 @@
+# ============================================================
+# espdisplay — 480×320 LANDSCAPE layout
+# Board: Guition JC3248W535 (ESP32-S3)
+# Rotation: flip from default 9:16 → 16:9 landscape
+# ============================================================
+# Pages: All Lights → Climate → Temps → Office → Bedroom → Living → Energy
+# Each room page shows lights + local temp sensor
+
 font: !include
   file: fonts/fonts.yaml
   vars:
-    text_sm: 16
-    text_md: 20
+    text_sm: 14
+    text_md: 18
     text_lg: 24
     text_xl: 32
     text_xxl: 48
-    icons_sm: 20
-    icons_md: 26
-    icons_lg: 34
-    icons_xl: 42
-    icons_xxl: 50
+    icons_sm: 18
+    icons_md: 24
+    icons_lg: 32
+    icons_xl: 40
+    icons_xxl: 48
 
 .sizing:
-  - &nav_widget_vars
-    height: 50
-    padding: 8
-
-  - &page_styles
+  - &nav_h          50
+  - &nav_pad         8
+  - &page
     <<: !include styles/page_styles.yaml
     pad_top: 50
     pad_bottom: 50
-
-  - &container_styles
+  - &container
     <<: !include styles/container_styles.yaml
     pad_top: 0
     pad_bottom: 0
     pad_left: 6
     pad_right: 6
-
-  - &button_layout
+  - &grid2
     <<: !include styles/button_layout.yaml
     pad_column: 8
     pad_row: 8
-
-  - &button_widget_vars
-    width: 49%
-    height: 86
-
-  - &wide_button_widget_vars
-    width: 100%
-    height: 86
-
-  - &printer_layout
-    <<: !include styles/printer_layout.yaml
-    pad_row: 4
-
-  - &printer_widget_vars
-    pad_all: 5
-    pad_row: 3
-    bar_height: 4
-    ams_tray_width: 45
-    ams_tray_height: 20
-    ams_tray_padding: 5
+  - &btn            { width: "49%",  height: 86 }
+  - &btn_wide       { width: "100%", height: 86 }
+  - &btn_half       { width: "49%",  height: 60 }
 
 script:
   - id: go_home
@@ -60,578 +47,615 @@ script:
       - lvgl.page.show: ${home_page}
 
 lvgl:
+  rotation: 90°
   default_font: roboto_md
   theme: !include themes/main.yaml
   top_layer:
     widgets:
-      - <<: !include { file: widgets/header/widget.yaml, vars: { <<: *nav_widget_vars } }
-      - <<: !include { file: widgets/footer/widget.yaml, vars: { <<: *nav_widget_vars } }
+      - <<: !include { file: widgets/header/widget.yaml, vars: { height: 50, padding: 8 } }
+      - <<: !include { file: widgets/footer/widget.yaml,  vars: { height: 50 } }
       - <<: !include { file: widgets/boot_screen/widget.yaml }
+
   pages:
+    # ── splash (auto-skip) ──────────────────────────────────
     - id: splash
       skip: true
       on_load:
         - script.execute: go_home
 
+    # ══════════════════════════════════════════════════════════
+    # PAGE 1  🏠  ALL LIGHTS
+    # ══════════════════════════════════════════════════════════
+    - id: lighting_1
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: All Lights
+      widgets:
+        - obj:
+            <<: *container
+            layout: { <<: *grid2 }
+            widgets:
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: l_living, entity_id: light.living_room, text: Living Room, <<: *btn } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: l_office, entity_id: light.office_lm, text: Office, <<: *btn } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: l_kitchen, entity_id: light.kitchen, text: Kitchen, <<: *btn } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: l_computer, entity_id: light.computer, text: Computer, <<: *btn } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: l_bl_r, entity_id: light.hue_play_1, text: Backlight R, <<: *btn } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: l_bl_l, entity_id: light.hue_play_2, text: Backlight L, <<: *btn } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: l_bed, entity_id: light.bedroom, text: Bedroom, <<: *btn } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: l_floor, entity_id: light.hue_color_lamp_3_2, text: Floor Lamp, <<: *btn } }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/stateful.yaml, vars: { uid: l_outside, icon_on: "\U000F06E8", icon_off: "\U000F0336", text: Outside, <<: *btn } }
+                  on_short_click:
+                    - homeassistant.action:
+                        action: switch.toggle
+                        data: { entity_id: switch.outside_lights_switch }
+              - button:
+                  <<: !include { file: widgets/buttons/icon_text_buttons/stateful.yaml, vars: { uid: l_patio, icon_on: "\U000F06E8", icon_off: "\U000F0336", text: Patio, <<: *btn } }
+                  on_short_click:
+                    - homeassistant.action:
+                        action: switch.toggle
+                        data: { entity_id: switch.patio_switch }
+
+    # ══════════════════════════════════════════════════════════
+    # PAGE 2  ❄️  AIRZONE (climate.climate)
+    # ── mode buttons + temp presets, live target/mode readout ──
+    # ══════════════════════════════════════════════════════════
+    - id: climate
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: Airzone
+      widgets:
+        - obj:
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 7 }
+            widgets:
+              - obj:
+                  width: 100%
+                  height: 58
+                  widgets:
+                    - label:
+                        id: climate_target
+                        text: "--.-°C"
+                        text_font: roboto_xxl
+                        align: CENTER
+              - obj:
+                  width: 100%
+                  height: 24
+                  widgets:
+                    - label:
+                        id: climate_state
+                        text: "Mode: --"
+                        text_font: roboto_md
+                        align: CENTER
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 6 }
+                  widgets:
+                    - button:
+                        width: "25%"
+                        height: 52
+                        widgets:
+                          - label: { text: "OFF", text_font: roboto_md, align: CENTER }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.turn_off
+                              data: { entity_id: climate.climate }
+                    - button:
+                        width: "25%"
+                        height: 52
+                        widgets:
+                          - label: { text: "AUTO", text_font: roboto_md, align: CENTER }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: heat_cool }
+                    - button:
+                        width: "25%"
+                        height: 52
+                        widgets:
+                          - label: { text: "COOL", text_font: roboto_md, align: CENTER }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: cool }
+                    - button:
+                        width: "25%"
+                        height: 52
+                        widgets:
+                          - label: { text: "HEAT", text_font: roboto_md, align: CENTER }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_hvac_mode
+                              data: { entity_id: climate.climate, hvac_mode: heat }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 6 }
+                  widgets:
+                    - button:
+                        width: "25%"
+                        height: 52
+                        widgets:
+                          - label: { text: "21°C", text_font: roboto_md, align: CENTER }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data: { entity_id: climate.climate, temperature: "21" }
+                    - button:
+                        width: "25%"
+                        height: 52
+                        widgets:
+                          - label: { text: "23°C", text_font: roboto_md, align: CENTER }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data: { entity_id: climate.climate, temperature: "23" }
+                    - button:
+                        width: "25%"
+                        height: 52
+                        widgets:
+                          - label: { text: "25°C", text_font: roboto_md, align: CENTER }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data: { entity_id: climate.climate, temperature: "25" }
+                    - button:
+                        width: "25%"
+                        height: 52
+                        widgets:
+                          - label: { text: "27°C", text_font: roboto_md, align: CENTER }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: climate.set_temperature
+                              data: { entity_id: climate.climate, temperature: "27" }
+
+    # ══════════════════════════════════════════════════════════
+    # PAGE 3  🌡️  ALL TEMPS
+    # ══════════════════════════════════════════════════════════
+    - id: temps
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: Temperatures
+      widgets:
+        - obj:
+            <<: *container
+            layout: { <<: *grid2 }
+            widgets:
+              - obj:
+                  <<: *btn
+                  widgets:
+                    - label: { id: t_office, text: "Office\n--.-°C", text_font: roboto_md, align: CENTER }
+              - obj:
+                  <<: *btn
+                  widgets:
+                    - label: { id: t_bedroom, text: "Bedroom\n--.-°C", text_font: roboto_md, align: CENTER }
+              - obj:
+                  <<: *btn
+                  widgets:
+                    - label: { id: t_ufficio, text: "Ufficio\n--.-°C", text_font: roboto_md, align: CENTER }
+              - obj:
+                  <<: *btn
+                  widgets:
+                    - label: { id: t_z1, text: "Z1\n--.-°C", text_font: roboto_md, align: CENTER }
+              - obj:
+                  <<: *btn
+                  widgets:
+                    - label: { id: t_z2, text: "Loo\n--.-°C", text_font: roboto_md, align: CENTER }
+              - obj:
+                  <<: *btn
+                  widgets:
+                    - label: { id: t_z3, text: "Z3\n--.-°C", text_font: roboto_md, align: CENTER }
+              - obj:
+                  <<: *btn
+                  widgets:
+                    - label: { id: t_lux, text: "Lux\n--.-°C", text_font: roboto_md, align: CENTER }
+
+    # ══════════════════════════════════════════════════════════
+    # PAGE 4  💡  OFFICE (lights + temp)
+    # ══════════════════════════════════════════════════════════
+    - id: office
+      <<: *page
+      on_load:
+        - lvgl.label.update:
+            id: page_title
+            text: Office
+      widgets:
+        - obj:
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 8 }
+            widgets:
+              - obj:
+                  width: 100%
+                  height: 60
+                  widgets:
+                    - label: { id: o_temp, text: "--.-°C", text_font: roboto_xl, align: CENTER }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: o_office, entity_id: light.office_lm, text: Office, <<: *btn } }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: o_computer, entity_id: light.computer, text: Computer, <<: *btn } }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: o_desk, entity_id: light.hue_ambiance_candle_1, text: Desk Lamp, <<: *btn } }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: o_floor, entity_id: light.hue_color_lamp_3, text: Floor Lamp, <<: *btn } }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: o_bl_r, entity_id: light.hue_play_1, text: Backlight R, <<: *btn } }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: o_bl_l, entity_id: light.hue_play_2, text: Backlight L, <<: *btn } }
+
+    # ══════════════════════════════════════════════════════════
+    # PAGE 5  🛏️  BEDROOM (lights + temp)
+    # ══════════════════════════════════════════════════════════
     - id: bedroom
-      <<: *page_styles
+      <<: *page
       on_load:
         - lvgl.label.update:
             id: page_title
             text: Bedroom
       widgets:
         - obj:
-            <<: *container_styles
-            layout:
-              <<: *button_layout
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 8 }
             widgets:
-              - button: # ceiling light
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: bedroom_light_1
-                      entity_id: light.bedroom_light_1
-                      text: Ceiling
-                      <<: *button_widget_vars
+              - obj:
+                  width: 100%
+                  height: 60
+                  widgets:
+                    - label: { id: b_temp, text: "--.-°C", text_font: roboto_xl, align: CENTER }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: b_bed, entity_id: light.bedroom, text: Bedroom, <<: *btn } }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: b_floor, entity_id: light.hue_color_lamp_3_2, text: Floor Lamp, <<: *btn } }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: b_cook1, entity_id: light.hue_ambiance_spot_1, text: Cooktop 1, <<: *btn } }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: b_cook2, entity_id: light.bedroom_ambiance_spot_1, text: Cooktop 2, <<: *btn } }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: b_candle, entity_id: light.hue_white_candle_1, text: Candle, <<: *btn } }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: b_strip, entity_id: light.room_lightstrip_plus_1, text: Strip, <<: *btn } }
 
-              - button: # volume up
-                  <<: !include
-                    file: widgets/buttons/icon_buttons/volume_buttons/vol_up.yaml
-                    vars:
-                      uid: bedroom_tv_vol_up
-                      entity_id: media_player.bedroom_android_tv
-                      <<: *button_widget_vars
-
-              - button: # rachel light
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: bedroom_light_3
-                      entity_id: light.bedroom_light_3
-                      text: Rachel
-                      <<: *button_widget_vars
-
-              - button: # volume down
-                  <<: !include
-                    file: widgets/buttons/icon_buttons/volume_buttons/vol_down.yaml
-                    vars:
-                      uid: bedroom_tv_vol_down
-                      entity_id: media_player.bedroom_android_tv
-                      <<: *button_widget_vars
-
-              - button: # ryan light
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: bedroom_light_2
-                      entity_id: light.bedroom_light_2
-                      text: Ryan
-                      <<: *button_widget_vars
-
-              - button: # play content
-                  <<: !include
-                    file: widgets/buttons/text_buttons/stateless.yaml
-                    vars:
-                      uid: play_content_futurama
-                      text: Futurama
-                      <<: *button_widget_vars
-                  on_short_click:
-                    - homeassistant.action:
-                        action: script.play_content_on_bedroom_chromecast
-                        data: { content: Futurama }
-                  on_long_press:
-                    - homeassistant.action:
-                        action: homeassistant.toggle
-                        data: { entity_id: media_player.bedroom_android_tv }
-
-              - button: # play content
-                  <<: !include
-                    file: widgets/buttons/text_buttons/stateless.yaml
-                    vars:
-                      uid: play_content_adventure_time
-                      text: "Adventure\nTime"
-                      <<: *button_widget_vars
-                  on_short_click:
-                    - homeassistant.action:
-                        action: script.play_content_on_bedroom_chromecast
-                        data: { content: Adventure Time }
-                  on_long_press:
-                    - homeassistant.action:
-                        action: homeassistant.toggle
-                        data: { entity_id: media_player.bedroom_android_tv }
-
-              - button: # play content
-                  <<: !include
-                    file: widgets/buttons/text_buttons/stateless.yaml
-                    vars:
-                      uid: play_content_american_dad
-                      text: American Dad
-                      <<: *button_widget_vars
-                  on_short_click:
-                    - homeassistant.action:
-                        action: script.play_content_on_bedroom_chromecast
-                        data: { content: American Dad }
-                  on_long_press:
-                    - homeassistant.action:
-                        action: homeassistant.toggle
-                        data: { entity_id: media_player.bedroom_android_tv }
-
+    # ══════════════════════════════════════════════════════════
+    # PAGE 6  🛋️  LIVING ROOM (lights + temp)
+    # ══════════════════════════════════════════════════════════
     - id: living_room
-      <<: *page_styles
+      <<: *page
       on_load:
         - lvgl.label.update:
             id: page_title
             text: Living Room
       widgets:
         - obj:
-            <<: *container_styles
-            layout:
-              <<: *button_layout
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 8 }
             widgets:
-              - button: # light 1
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: living_room_light_1
-                      entity_id: light.living_room_light_1
-                      text: Light 1
-                      <<: *button_widget_vars
+              - obj:
+                  width: 100%
+                  height: 60
+                  widgets:
+                    - label: { id: lr_temp, text: "--.-°C", text_font: roboto_xl, align: CENTER }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: lr_living, entity_id: light.living_room, text: Lights, <<: *btn } }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: lr_bulb, entity_id: light.hue_filament_bulb_1, text: Bulb, <<: *btn } }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: lr_stand, entity_id: light.hue_go_1, text: Stand, <<: *btn } }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml, vars: { uid: lr_strip, entity_id: light.hue_essential_strip_light_1, text: Strip, <<: *btn } }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/stateful.yaml, vars: { uid: lr_tv, icon_on: "\U000F0425", icon_off: "\U000F0425", text: TV, <<: *btn } }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: media_player.toggle
+                              data: { entity_id: media_player.samsung_6_series_55 }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_buttons/volume_buttons/vol_up.yaml, vars: { uid: lr_volup, entity_id: media_player.samsung_6_series_55, <<: *btn } }
 
-              - button: # light 2
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: living_room_light_2
-                      entity_id: light.living_room_light_2
-                      text: Light 2
-                      <<: *button_widget_vars
-
-              # - button: # dim scene
-              #     <<: !include
-              #       file: widgets/buttons/text_buttons/stateless.yaml
-              #       vars:
-              #         uid: dim
-              #         text: Dim Lights
-              #         <<: *button_widget_vars
-              #     on_short_click:
-              #       - homeassistant.action:
-              #           action: homeassistant.turn_on
-              #           data: { entity_id: scene.living_room_lights_tv_watching }
-              #     on_long_press:
-              #       - homeassistant.action:
-              #           action: light.turn_on
-              #           data: { entity_id: light.all_living_room_lights, brightness_pct: '100' }
-
-              - button: # tv power
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/stateful.yaml
-                    vars:
-                      uid: living_room_tv
-                      icon_on: "\U000F0425"
-                      icon_off: "\U000F0425"
-                      text: TV
-                      <<: *button_widget_vars
-                  on_short_click:
-                    - homeassistant.action:
-                        action: media_player.toggle
-                        data: { entity_id: media_player.living_room_tv }
-
-              - button: # tv power
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/stateful.yaml
-                    vars:
-                      uid: living_room_xbox
-                      icon_on: "\U000F0425"
-                      icon_off: "\U000F0425"
-                      text: Xbox
-                      <<: *button_widget_vars
-                  on_short_click:
-                    - homeassistant.action:
-                        action: media_player.toggle
-                        data: { entity_id: media_player.ryan_s_xbox }
-
-              - button: # play / pause
-                  <<: !include
-                    file: widgets/buttons/icon_buttons/stateless.yaml
-                    vars:
-                      uid: living_room_tv_playpause
-                      icon: "\U000F040E"
-                      <<: *button_widget_vars
-                  on_short_click:
-                    - homeassistant.action:
-                        action: media_player.media_play_pause
-                        data: { entity_id: media_player.living_room_tv }
-
-              - button: # volume up
-                  <<: !include
-                    file: widgets/buttons/icon_buttons/volume_buttons/vol_up.yaml
-                    vars:
-                      uid: living_room_tv_vol_up
-                      entity_id: media_player.living_room_tv
-                      <<: *button_widget_vars
-
-              - button: # stop
-                  <<: !include
-                    file: widgets/buttons/icon_buttons/stateless.yaml
-                    vars:
-                      uid: living_room_tv_stop
-                      icon: "\U000F04DB"
-                      <<: *button_widget_vars
-                  on_short_click:
-                    - homeassistant.action:
-                        action: media_player.media_stop
-                        data: { entity_id: media_player.living_room_tv }
-
-              - button: # volume down
-                  <<: !include
-                    file: widgets/buttons/icon_buttons/volume_buttons/vol_down.yaml
-                    vars:
-                      uid: living_room_tv_vol_down
-                      entity_id: media_player.living_room_tv
-                      <<: *button_widget_vars
-
-    - id: lighting_1
-      <<: *page_styles
+    # ══════════════════════════════════════════════════════════
+    # PAGE 7  ⚡  ENERGY
+    # ══════════════════════════════════════════════════════════
+    - id: energy
+      <<: *page
       on_load:
         - lvgl.label.update:
             id: page_title
-            text: Main Floor Lighting
+            text: Power
       widgets:
         - obj:
-            <<: *container_styles
-            layout:
-              <<: *button_layout
+            <<: *container
+            layout: { type: FLEX, flex_flow: COLUMN, pad_row: 10 }
             widgets:
-              - button: # main floor lights
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_group_buttons/widget.yaml
-                    vars:
-                      uid: main_floor_lights
-                      entity_id: light.main_floor_lights
-                      text: Main Floor
-                      <<: *wide_button_widget_vars
+              - obj:
+                  width: 100%
+                  height: 70
+                  widgets:
+                    - label: { id: e_power, text: "---- W", text_font: roboto_xxl, align: CENTER }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - obj:
+                        width: "49%"
+                        height: 50
+                        widgets:
+                          - label: { id: e_voltage, text: "--- V", text_font: roboto_md, align: CENTER }
+                    - obj:
+                        width: "49%"
+                        height: 50
+                        widgets:
+                          - label: { id: e_current, text: "--- A", text_font: roboto_md, align: CENTER }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - obj:
+                        width: "49%"
+                        height: 50
+                        widgets:
+                          - label: { id: e_heater, text: "Heater: ----W", text_font: roboto_md, align: CENTER }
+                    - button:
+                        <<: !include { file: widgets/buttons/icon_text_buttons/stateful.yaml, vars: { uid: e_wh, icon_on: "\U000F03EB", icon_off: "\U000F03EC", text: Heater, <<: *btn_half } }
+                        on_short_click:
+                          - homeassistant.action:
+                              action: switch.toggle
+                              data: { entity_id: switch.tapo_sock_water_xl }
+              - obj:
+                  layout: { type: FLEX, flex_flow: ROW, pad_column: 8 }
+                  widgets:
+                    - obj:
+                        width: "49%"
+                        height: 50
+                        widgets:
+                          - label: { id: e_today, text: "Today\n--- kWh", text_font: roboto_md, align: CENTER }
+                    - obj:
+                        width: "49%"
+                        height: 50
+                        widgets:
+                          - label: { id: e_month, text: "Month\n--- kWh", text_font: roboto_md, align: CENTER }
 
-              - button: # living room light
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: all_living_room_lights
-                      entity_id: light.all_living_room_lights
-                      text: Living Room
-                      <<: *button_widget_vars
-
-              - button: # kitchen light
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: kitchen_light
-                      entity_id: light.kitchen_light
-                      text: Kitchen
-                      <<: *button_widget_vars
-
-              - button: # rachel's office light
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: rachels_office_light
-                      entity_id: light.rachels_office_light
-                      text: Office
-                      <<: *button_widget_vars
-
-    - id: lighting_2
-      <<: *page_styles
-      on_load:
-        - lvgl.label.update:
-            id: page_title
-            text: Second Floor Lighting
-      widgets:
-        - obj:
-            <<: *container_styles
-            layout:
-              <<: *button_layout
-            widgets:
-              - button: # second floor lights
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_group_buttons/widget.yaml
-                    vars:
-                      uid: second_floor_lights
-                      entity_id: light.second_floor_lights
-                      text: Second Floor
-                      <<: *wide_button_widget_vars
-
-              - button: # bedroom lights
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: all_bedroom_lights
-                      entity_id: light.all_bedroom_lights
-                      text: Bedroom
-                      <<: *button_widget_vars
-
-              - button: # railyn light
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: railyns_light
-                      entity_id: light.railyns_light
-                      text: Railyn
-                      <<: *button_widget_vars
-
-              - button: # ryan's office light
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: all_ryan_s_office_lights
-                      entity_id: light.all_ryan_s_office_lights
-                      text: Office
-                      <<: *button_widget_vars
-
-              - button: # upstairs hallway light
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: upstairs_hallway_light
-                      entity_id: light.upstairs_hallway_light
-                      text: Hallway
-                      <<: *button_widget_vars
-
-    - id: lighting_3
-      <<: *page_styles
-      on_load:
-        - lvgl.label.update:
-            id: page_title
-            text: Outside Lighting
-      widgets:
-        - obj:
-            <<: *container_styles
-            layout:
-              <<: *button_layout
-            widgets:
-              - button: # outdoor lights
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_group_buttons/widget.yaml
-                    vars:
-                      uid: all_outside_lights
-                      entity_id: light.all_outside_lights
-                      text: Outside Lights
-                      <<: *wide_button_widget_vars
-
-              - button: # door lights
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: outside_light_1
-                      entity_id: light.outside_light_1
-                      text: Door Lights
-                      <<: *button_widget_vars
-
-              - button: # deck lights
-                  <<: !include
-                    file: widgets/buttons/icon_text_buttons/light_buttons/widget.yaml
-                    vars:
-                      uid: outside_light_2
-                      entity_id: light.outside_light_2
-                      text: Deck Lights
-                      <<: *button_widget_vars
-
-    - id: printers
-      <<: *page_styles
-      on_load:
-        - lvgl.label.update:
-            id: page_title
-            text: Printers
-      widgets:
-        - obj:
-            <<: *container_styles
-            layout:
-              <<: *printer_layout
-            widgets:
-              - obj: # printer 1
-                  <<: !include
-                    file: widgets/printers/widget.yaml
-                    vars:
-                      uid: printer_1
-                      name: 1 - Fred
-                      <<: *printer_widget_vars
-
-              - obj: # printer 2
-                  <<: !include
-                    file: widgets/printers/widget.yaml
-                    vars:
-                      uid: printer_2
-                      name: 2 - Wilma
-                      <<: *printer_widget_vars
-
-              - obj: # printer 3
-                  <<: !include
-                    file: widgets/printers/widget.yaml
-                    vars:
-                      uid: printer_3
-                      name: 3 - Barney
-                      <<: *printer_widget_vars
-
-              - obj: # printer 4
-                  <<: !include
-                    file: widgets/printers/widget.yaml
-                    vars:
-                      uid: printer_4
-                      name: 4 - Betty
-                      <<: *printer_widget_vars
-
-              - obj: # printer 5
-                  <<: !include
-                    file: widgets/printers/widget.yaml
-                    vars:
-                      uid: printer_5
-                      name: 5 - Dinno
-                      <<: *printer_widget_vars
-
-              - obj: # printer 6
-                  <<: !include
-                    file: widgets/printers/widget.yaml
-                    vars:
-                      uid: printer_6
-                      name: 6 - Pebbles
-                      <<: *printer_widget_vars
-
+# ══════════════════════════════════════════════════════════════════
+# SENSOR PACKAGES
+# ══════════════════════════════════════════════════════════════════
 packages:
-  # header
   header_sensors: !include { file: widgets/header/sensors.yaml }
-
-  # boot screen
   boot_screen_sensors: !include { file: widgets/boot_screen/sensors.yaml }
 
-  # bedroom
-  bedroom_tv_widget_sensors: !include { file: widgets/bedroom_tv.sensor.yaml }
+  # ── All Lights ──────────────────────────────────────────
+  l_living_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: l_living, entity_id: light.living_room } }
+  l_office_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: l_office, entity_id: light.office_lm } }
+  l_kitchen_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: l_kitchen, entity_id: light.kitchen } }
+  l_computer_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: l_computer, entity_id: light.computer } }
+  l_bl_r_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: l_bl_r, entity_id: light.hue_play_1 } }
+  l_bl_l_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: l_bl_l, entity_id: light.hue_play_2 } }
+  l_bed_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: l_bed, entity_id: light.bedroom } }
+  l_floor_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: l_floor, entity_id: light.hue_color_lamp_3_2 } }
+  l_outside_sensors: !include { file: widgets/buttons/icon_buttons/stateful_sensors.yaml, vars: { uid: l_outside, entity_id: switch.outside_lights_switch } }
+  l_patio_sensors: !include { file: widgets/buttons/icon_buttons/stateful_sensors.yaml, vars: { uid: l_patio, entity_id: switch.patio_switch } }
 
-  bedroom_light_1_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: bedroom_light_1,
-    entity_id: light.bedroom_light_1
-  }}
+  # ── Airzone climate (climate.climate) ────────────────────
+  climate_target_s:
+    sensor:
+      - id: cl_tgt
+        platform: homeassistant
+        entity_id: climate.climate
+        attribute: temperature
+        on_value:
+          - lvgl.label.update:
+              id: climate_target
+              text: !lambda 'return (to_string(id(cl_tgt).state) + "°C").c_str();'
+  climate_state_s:
+    text_sensor:
+      - id: cl_mode
+        platform: homeassistant
+        entity_id: climate.climate
+        on_value:
+          - lvgl.label.update:
+              id: climate_state
+              text: !lambda 'return (std::string("Mode: ") + id(cl_mode).state).c_str();'
 
-  bedroom_light_2_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: bedroom_light_2,
-    entity_id: light.bedroom_light_2
-  }}
+  # ── Temps page ──────────────────────────────────────────
+  t_office_s:
+    sensor:
+      - id: ts_office
+        platform: homeassistant
+        entity_id: sensor.zbthermvb_temperature
+        on_value:
+          - lvgl.label.update:
+              id: t_office
+              text: !lambda 'return ("Office\n" + to_string(id(ts_office).state) + "°C").c_str();'
+  t_bedroom_s:
+    sensor:
+      - id: ts_bed
+        platform: homeassistant
+        entity_id: sensor.therm_bedroom_area_temperature
+        on_value:
+          - lvgl.label.update:
+              id: t_bedroom
+              text: !lambda 'return ("Bedroom\n" + to_string(id(ts_bed).state) + "°C").c_str();'
+  t_ufficio_s:
+    sensor:
+      - id: ts_ufficio
+        platform: homeassistant
+        entity_id: sensor.therm_ufficio_temperature
+        on_value:
+          - lvgl.label.update:
+              id: t_ufficio
+              text: !lambda 'return ("Ufficio\n" + to_string(id(ts_ufficio).state) + "°C").c_str();'
+  t_z1_s:
+    sensor:
+      - id: ts_z1
+        platform: homeassistant
+        entity_id: sensor.therm_z1_temperature
+        on_value:
+          - lvgl.label.update:
+              id: t_z1
+              text: !lambda 'return ("Z1\n" + to_string(id(ts_z1).state) + "°C").c_str();'
+  t_z2_s:
+    sensor:
+      - id: ts_z2
+        platform: homeassistant
+        entity_id: sensor.therm_z2_temperature
+        on_value:
+          - lvgl.label.update:
+              id: t_z2
+              text: !lambda 'return ("Loo\n" + to_string(id(ts_z2).state) + "°C").c_str();'
+  t_z3_s:
+    sensor:
+      - id: ts_z3
+        platform: homeassistant
+        entity_id: sensor.therm_z3_temperature
+        on_value:
+          - lvgl.label.update:
+              id: t_z3
+              text: !lambda 'return ("Z3\n" + to_string(id(ts_z3).state) + "°C").c_str();'
+  t_lux_s:
+    sensor:
+      - id: ts_lux
+        platform: homeassistant
+        entity_id: sensor.sensor_temperature
+        on_value:
+          - lvgl.label.update:
+              id: t_lux
+              text: !lambda 'return ("Lux\n" + to_string(id(ts_lux).state) + "°C").c_str();'
 
-  bedroom_light_3_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: bedroom_light_3,
-    entity_id: light.bedroom_light_3
-  }}
+  # ── Office ──────────────────────────────────────────────
+  o_temp_s:
+    sensor:
+      - id: os_temp
+        platform: homeassistant
+        entity_id: sensor.zbthermvb_temperature
+        on_value:
+          - lvgl.label.update:
+              id: o_temp
+              text: !lambda 'return (to_string(id(os_temp).state) + "°C").c_str();'
+  o_office_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: o_office, entity_id: light.office_lm } }
+  o_computer_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: o_computer, entity_id: light.computer } }
+  o_desk_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: o_desk, entity_id: light.hue_ambiance_candle_1 } }
+  o_floor_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: o_floor, entity_id: light.hue_color_lamp_3 } }
+  o_bl_r_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: o_bl_r, entity_id: light.hue_play_1 } }
+  o_bl_l_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: o_bl_l, entity_id: light.hue_play_2 } }
 
-  # living_room
-  living_room_light_1_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: living_room_light_1,
-    entity_id: light.living_room_light_1
-  }}
+  # ── Bedroom ─────────────────────────────────────────────
+  b_temp_s:
+    sensor:
+      - id: bs_temp
+        platform: homeassistant
+        entity_id: sensor.therm_bedroom_area_temperature
+        on_value:
+          - lvgl.label.update:
+              id: b_temp
+              text: !lambda 'return (to_string(id(bs_temp).state) + "°C").c_str();'
+  b_bed_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: b_bed, entity_id: light.bedroom } }
+  b_floor_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: b_floor, entity_id: light.hue_color_lamp_3_2 } }
+  b_cook1_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: b_cook1, entity_id: light.hue_ambiance_spot_1 } }
+  b_cook2_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: b_cook2, entity_id: light.bedroom_ambiance_spot_1 } }
+  b_candle_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: b_candle, entity_id: light.hue_white_candle_1 } }
+  b_strip_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: b_strip, entity_id: light.room_lightstrip_plus_1 } }
 
-  living_room_light_2_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: living_room_light_2,
-    entity_id: light.living_room_light_2
-  }}
+  # ── Living Room ─────────────────────────────────────────
+  lr_temp_s:
+    sensor:
+      - id: lrs_temp
+        platform: homeassistant
+        entity_id: sensor.therm_ufficio_temperature
+        on_value:
+          - lvgl.label.update:
+              id: lr_temp
+              text: !lambda 'return (to_string(id(lrs_temp).state) + "°C").c_str();'
+  lr_living_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: lr_living, entity_id: light.living_room } }
+  lr_bulb_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: lr_bulb, entity_id: light.hue_filament_bulb_1 } }
+  lr_stand_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: lr_stand, entity_id: light.hue_go_1 } }
+  lr_strip_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: { uid: lr_strip, entity_id: light.hue_essential_strip_light_1 } }
+  lr_tv_sensors: !include { file: widgets/buttons/icon_buttons/stateful_sensors.yaml, vars: { uid: lr_tv, entity_id: media_player.samsung_6_series_55 } }
 
-  living_room_tv_widget_sensors: !include { file: widgets/buttons/icon_buttons/stateful_sensors.yaml, vars: {
-    uid: living_room_tv,
-    entity_id: media_player.living_room_tv
-  }}
-
-  living_room_xbox_widget_sensors: !include { file: widgets/buttons/icon_buttons/stateful_sensors.yaml, vars: {
-    uid: living_room_xbox,
-    entity_id: media_player.ryan_s_xbox
-  }}
-
-  living_room_tv_extra_widgets_sensors: !include { file: widgets/living_room_tv.sensor.yaml }
-
-  # lighting 1
-  main_floor_lights_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_group_buttons/sensors.yaml, vars: {
-    uid: main_floor_lights,
-    entity_id: light.main_floor_lights
-  }}
-
-  all_living_room_lights_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: all_living_room_lights,
-    entity_id: light.all_living_room_lights
-  }}
-
-  kitchen_light_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: kitchen_light,
-    entity_id: light.kitchen_light
-  }}
-
-  rachels_office_light_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: rachels_office_light,
-    entity_id: light.rachels_office_light
-  }}
-
-  # lighting 2
-  second_floor_lights_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_group_buttons/sensors.yaml, vars: {
-    uid: second_floor_lights,
-    entity_id: light.second_floor_lights
-  }}
-
-  all_bedroom_lights_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: all_bedroom_lights,
-    entity_id: light.all_bedroom_lights
-  }}
-
-  railyns_light_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: railyns_light,
-    entity_id: light.railyns_light
-  }}
-
-  ryans_office_light_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: all_ryan_s_office_lights,
-    entity_id: light.all_ryan_s_office_lights
-  }}
-
-  upstairs_hallway_light_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: upstairs_hallway_light,
-    entity_id: light.upstairs_hallway_light
-  }}
-
-  # lighting 3
-  all_outside_lights_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_group_buttons/sensors.yaml, vars: {
-    uid: all_outside_lights,
-    entity_id: light.all_outside_lights
-  }}
-
-  outside_light_1_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: outside_light_1,
-    entity_id: light.outside_light_1
-  }}
-
-  outside_light_2_widget_sensors: !include { file: widgets/buttons/icon_text_buttons/light_buttons/sensors.yaml, vars: {
-    uid: outside_light_2,
-    entity_id: light.outside_light_2
-  }}
-
-  # printers
-  printer_1_widget_sensors: !include { file: widgets/printers/sensors.yaml, vars: {
-    uid: printer_1,
-    entity_id_prefix: p1s_1
-  }}
-
-  printer_2_widget_sensors: !include { file: widgets/printers/sensors.yaml, vars: {
-    uid: printer_2,
-    entity_id_prefix: p1s_2
-  }}
-
-  printer_3_widget_sensors: !include { file: widgets/printers/sensors.yaml, vars: {
-    uid: printer_3,
-    entity_id_prefix: p1s_3
-  }}
-
-  printer_4_widget_sensors: !include { file: widgets/printers/sensors.yaml, vars: {
-    uid: printer_4,
-    entity_id_prefix: p1s_4
-  }}
-
-  printer_5_widget_sensors: !include { file: widgets/printers/sensors.yaml, vars: {
-    uid: printer_5,
-    entity_id_prefix: p1s_5
-  }}
-
-  printer_6_widget_sensors: !include { file: widgets/printers/sensors.yaml, vars: {
-    uid: printer_6,
-    entity_id_prefix: p1s_6
-  }}
+  # ── Energy ──────────────────────────────────────────────
+  e_power_s:
+    sensor:
+      - id: es_power
+        platform: homeassistant
+        entity_id: sensor.main_supply_power
+        on_value:
+          - lvgl.label.update:
+              id: e_power
+              text: !lambda 'return (to_string(id(es_power).state) + " W").c_str();'
+  e_voltage_s:
+    sensor:
+      - id: es_voltage
+        platform: homeassistant
+        entity_id: sensor.main_supply_voltage_a
+        on_value:
+          - lvgl.label.update:
+              id: e_voltage
+              text: !lambda 'return (to_string(id(es_voltage).state) + " V").c_str();'
+  e_current_s:
+    sensor:
+      - id: es_current
+        platform: homeassistant
+        entity_id: sensor.main_supply_current_a
+        on_value:
+          - lvgl.label.update:
+              id: e_current
+              text: !lambda 'return (to_string(id(es_current).state) + " A").c_str();'
+  e_heater_s:
+    sensor:
+      - id: es_heater
+        platform: homeassistant
+        entity_id: sensor.tapo_sock_water_xl_current_consumption
+        on_value:
+          - lvgl.label.update:
+              id: e_heater
+              text: !lambda 'return ("Heater: " + to_string(id(es_heater).state) + "W").c_str();'
+  e_wh_sensors: !include { file: widgets/buttons/icon_buttons/stateful_sensors.yaml, vars: { uid: e_wh, entity_id: switch.tapo_sock_water_xl } }
+  e_today_s:
+    sensor:
+      - id: es_today
+        platform: homeassistant
+        entity_id: sensor.tapo_sock_water_xl_today_s_consumption
+        on_value:
+          - lvgl.label.update:
+              id: e_today
+              text: !lambda 'return ("Today\n" + to_string(id(es_today).state) + " kWh").c_str();'
+  e_month_s:
+    sensor:
+      - id: es_month
+        platform: homeassistant
+        entity_id: sensor.tapo_sock_water_xl_this_month_s_consumption
+        on_value:
+          - lvgl.label.update:
+              id: e_month
+              text: !lambda 'return ("Month\n" + to_string(id(es_month).state) + " kWh").c_str();'

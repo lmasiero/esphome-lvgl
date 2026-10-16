@@ -1,0 +1,35 @@
+# Notification banner — include into lvgl: top_layer: widgets:
+# after header/footer, before boot_screen. Driven by test-notify.yaml
+# (script notify_show + api action display_notify).
+
+obj:
+  id: notify_banner
+  width: 90%
+  height: 64
+  radius: 12
+  bg_color: 0x2C3344
+  border_width: 2
+  border_color: 0x00B6FF
+  align: TOP_MID
+  y: 54
+  hidden: true
+  scrollable: false
+  widgets:
+    - label:
+        text: "\U000F009E"
+        text_font: mdi_md
+        text_color: 0x00B6FF
+        align: TOP_LEFT
+        x: 10
+        y: 6
+    - label:
+        id: notify_text
+        text: ""
+        text_font: roboto_sm
+        text_align: CENTER
+        width: "88%"
+        align: CENTER
+        y: 10
+        text_color: 0xFFFFFF
+  on_click:
+    - lvgl.widget.hide: notify_banner
